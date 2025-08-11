@@ -1,0 +1,423 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="download_date" content="2025-05-13T04:41:26.975Z"/>
+    
+    <!-- 使用 device-width 為基準，但在 iPhone 上我們會額外加入 mobile-view 樣式 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>華麗YouTube播放器</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Roboto:wght@400;500;700&display=swap');
+
+        :root {
+            --primary-color: #ff0000;
+            --secondary-color: #282828;
+            --dark-color: #0f0f0f;
+            --light-color: #ffffff;
+            --gray-color: #aaaaaa;
+            --hover-color: #cc0000;
+            --border-color: #303030;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Roboto', 'Noto Sans TC', sans-serif;
+            background: var(--dark-color);
+            color: var(--light-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: var(--secondary-color);
+            border-radius: 12px;
+            padding: 30px;
+            margin: 0 auto;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .container::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: var(--primary-color);
+            z-index: 2;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        h1 {
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--light-color);
+            position: relative;
+            display: inline-block;
+        }
+
+        h1::after {
+            content: "";
+            position: absolute;
+            bottom: -10px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: var(--primary-color);
+            border-radius: 3px;
+        }
+
+        .input-group {
+            display: flex;
+            margin-bottom: 30px;
+            position: relative;
+            z-index: 2;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 2px 0 0 2px;
+            background: #121212;
+            color: var(--light-color);
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        input::placeholder { color: var(--gray-color); }
+        input:focus {
+            border-color: #1c62b9;
+            box-shadow: 0 0 0 1px #1c62b9;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            background: var(--primary-color);
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* 貼上與播放按鈕的圓角設定 */
+        #pasteBtn {
+            border-radius: 0;
+            margin-right: 2px;
+        }
+        #submitBtn { border-radius: 0 2px 2px 0; }
+
+        button:hover { background: var(--hover-color); }
+        button:active { transform: translateY(1px); }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .player-container {
+            width: 90%;
+            max-width: 1000px;
+            position: relative;
+            background: #000000;
+            border-radius: 8px;
+            padding: 20px;
+            transform: scale(0.95);
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+        .overlay.active .player-container { transform: scale(1); }
+
+        .close-btn {
+            position: absolute;
+            top: -15px;
+            right: -15px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.1rem;
+            z-index: 10;
+            transition: all 0.2s ease;
+        }
+        .close-btn:hover { background: var(--hover-color); }
+
+        .youtube-frame {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+        }
+        .youtube-frame iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            border: none;
+        }
+
+        .error {
+            background: rgba(255, 0, 0, 0.1);
+            color: #ff6b6b;
+            padding: 10px 15px;
+            border-radius: 3px;
+            margin-top: 10px;
+            display: none;
+            border: 1px solid rgba(255, 0, 0, 0.3);
+        }
+
+        .how-to {
+            margin-top: 30px;
+            background: #212121;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: left;
+            border: 1px solid var(--border-color);
+        }
+        .how-to h3 {
+            margin-bottom: 15px;
+            color: var(--light-color);
+            font-weight: 500;
+        }
+        .how-to ol { padding-left: 20px; color: #e5e5e5; }
+        .how-to li { margin-bottom: 10px; }
+
+        .creator-credit {
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            font-size: 0.95rem;
+            color: var(--gray-color);
+            z-index: 100;
+            background-color: rgba(15, 15, 15, 0.7);
+            padding: 5px 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+        .creator-credit a {
+            color: var(--light-color);
+            text-decoration: none;
+            transition: color 0.2s ease;
+            font-weight: 500;
+        }
+        .creator-credit a:hover {
+            color: var(--primary-color);
+            text-decoration: underline;
+        }
+
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+        }
+
+        /* 原先的 Media Query - RWD 調整 */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            h1 { font-size: 2rem; }
+            .input-group {
+                flex-direction: column;
+            }
+            .input-group input {
+                border-radius: 4px;
+                margin-bottom: 10px;
+            }
+            .input-group button {
+                border-radius: 4px;
+                width: 100%;
+            }
+            #pasteBtn { margin-right: 0; }
+        }
+
+        /* 強制在 iPhone 上使用手機介面：針對加上 .mobile-view 的裝置 */
+        .mobile-view .container {
+            padding: 20px !important;
+            margin: 10px !important;
+        }
+        .mobile-view h1 {
+            font-size: 2rem !important;
+        }
+        .mobile-view .input-group {
+            flex-direction: column !important;
+        }
+        .mobile-view .input-group input {
+            border-radius: 4px !important;
+            margin-bottom: 10px !important;
+        }
+        .mobile-view .input-group button {
+            border-radius: 4px !important;
+            width: 100% !important;
+        }
+    </style>
+<base href=""></head>
+<body>
+    <div class="container">
+        <h1>溝壩YouTube播放器</h1>
+        <div class="input-group">
+            <input type="text" id="youtubeLink" placeholder="請貼上YouTube網址或播放清單連結" autocomplete="off">
+            <button id="pasteBtn">貼上</button>
+            <button id="submitBtn" class="pulse">播放</button>
+        </div>
+        <div class="error" id="errorMsg">無效的YouTube連結，請重新嘗試</div>        
+    </div>
+    <div class="overlay" id="playerOverlay">
+        <div class="player-container">
+            <div class="close-btn" id="closeBtn">✕</div>
+            <div class="youtube-frame" id="playerFrame"></div>
+        </div>
+    </div>
+    <div class="creator-credit">
+        Made by <a href="https://gbes.ylc.edu.tw" target="_blank">溝壩國小</a>
+    </div>
+    <script>
+        // 偵測是否為 iPhone，若是則加入 mobile-view class 強制啟用手機介面
+        if (/iPhone/i.test(navigator.userAgent)) {
+            document.documentElement.classList.add('mobile-view');
+        }
+
+        // 從YouTube連結獲取影片ID和播放清單ID
+        function getYoutubeIds(url) {
+            let videoId = null;
+            let playlistId = null;
+            try {
+                const urlObj = new URL(url);
+                if (urlObj.hostname === 'youtu.be') {
+                    videoId = urlObj.pathname.substr(1);
+                } else if (urlObj.hostname.includes('youtube.com')) {
+                    const searchParams = new URLSearchParams(urlObj.search);
+                    if (searchParams.has('v')) {
+                        videoId = searchParams.get('v');
+                    }
+                    if (searchParams.has('list')) {
+                        playlistId = searchParams.get('list');
+                    }
+                }
+            } catch (e) {
+                return { videoId: null, playlistId: null };
+            }
+            return { videoId, playlistId };
+        }
+
+        // 顯示YouTube播放器（採用 youtube-nocookie.com 提供隱私友善的嵌入連結）
+        function showYoutubePlayer(videoId, playlistId) {
+            const playerFrame = document.getElementById('playerFrame');
+            const playerOverlay = document.getElementById('playerOverlay');
+            let embedUrl = 'https://www.youtube-nocookie.com/embed/';
+            if (videoId) { embedUrl += videoId; }
+            if (playlistId) {
+                if (videoId) {
+                    embedUrl += `?list=${playlistId}`;
+                } else {
+                    embedUrl += `?listType=playlist&list=${playlistId}`;
+                }
+            }
+            playerFrame.innerHTML = `<iframe src="${embedUrl}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
+            playerOverlay.classList.add('active');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const submitBtn = document.getElementById('submitBtn');
+            const pasteBtn = document.getElementById('pasteBtn');
+            const closeBtn = document.getElementById('closeBtn');
+            const youtubeLink = document.getElementById('youtubeLink');
+            const playerOverlay = document.getElementById('playerOverlay');
+            const errorMsg = document.getElementById('errorMsg');
+            
+            submitBtn.addEventListener('click', function() {
+                const url = youtubeLink.value.trim();
+                const { videoId, playlistId } = getYoutubeIds(url);
+                if (!videoId && !playlistId) {
+                    errorMsg.style.display = 'block';
+                    youtubeLink.classList.add('error-input');
+                    setTimeout(() => {
+                        errorMsg.style.display = 'none';
+                        youtubeLink.classList.remove('error-input');
+                    }, 3000);
+                    return;
+                }
+                errorMsg.style.display = 'none';
+                youtubeLink.classList.remove('error-input');
+                showYoutubePlayer(videoId, playlistId);
+            });
+            
+            pasteBtn.addEventListener('click', function() {
+                navigator.clipboard.readText().then(text => {
+                    youtubeLink.value = text.trim();
+                    submitBtn.click();
+                }).catch(err => {
+                    console.error('無法存取剪貼簿:', err);
+                });
+            });
+            
+            closeBtn.addEventListener('click', function() {
+                playerOverlay.classList.remove('active');
+                document.getElementById('playerFrame').innerHTML = '';
+            });
+            
+            youtubeLink.addEventListener('keyup', function(event) {
+                if (event.key === 'Enter') {
+                    submitBtn.click();
+                }
+            });
+            
+            playerOverlay.addEventListener('click', function(event) {
+                if (event.target === playerOverlay) {
+                    closeBtn.click();
+                }
+            });
+        });
+    </script>
+
+
+</body>
